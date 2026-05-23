@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Thanjavur Weather</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg:      #060b14;
+      --bg2:     #0a1120;
+      --surface: #0f1929;
+      --card:    #111e30;
+      --border:  rgba(99,179,237,0.10);
+      --border2: rgba(99,179,237,0.18);
+      --blue:    #38bdf8;
+      --cyan:    #22d3ee;
+      --violet:  #818cf8;
+      --amber:   #fbbf24;
+      --coral:   #f87171;
+      --green:   #34d399;
+      --text:    #e2eaf8;
+      --muted:   #5b7496;
+      --dim:     #1e2d42;
+      --glow:    rgba(56,189,248,0.18);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', system-ui, sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── atmospheric background ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(56,189,248,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 110%, rgba(129,140,248,0.06) 0%, transparent 55%),
+        radial-gradient(ellipse 40% 30% at 50% 50%,  rgba(10,17,32,0.9) 0%, transparent 100%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* subtle star-field */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: radial-gradient(1px 1px at 20% 15%, rgba(255,255,255,0.3) 0%, transparent 100%),
+        radial-gradient(1px 1px at 60% 8%,  rgba(255,255,255,0.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 80% 30%, rgba(255,255,255,0.2) 0%, transparent 100%),
+        radial-gradient(1px 1px at 40% 70%, rgba(255,255,255,0.15) 0%, transparent 100%),
+        radial-gradient(1px 1px at 10% 50%, rgba(255,255,255,0.15) 0%, transparent 100%),
+        radial-gradient(1px 1px at 90% 60%, rgba(255,255,255,0.1)  0%, transparent 100%),
+        radial-gradient(1px 1px at 30% 90%, rgba(255,255,255,0.1)  0%, transparent 100%);
+      pointer-events: none; z-index: 0;
+    }
+
+    .app {
+      position: relative; z-index: 1;
+      width: min(1200px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 56px;
+    }
+
+    /* ═══ TOPBAR ═══ */
+    .topbar {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 16px; margin-bottom: 28px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 16px; }
+
+    /* SVG logo mark */
+    .brand-mark {
+      width: 52px; height: 52px; flex: 0 0 auto;
+      position: relative;
+    }
+
+    .brand-mark svg { width: 100%; height: 100%; }
+
+    .brand-text h1 {
+      font-size: clamp(1.2rem, 3vw, 1.75rem);
+      font-weight: 800; letter-spacing: -0.02em; line-height: 1;
+      background: linear-gradient(135deg, var(--blue) 0%, var(--cyan) 60%, #fff 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .brand-text p {
+      margin-top: 4px; font-size: 0.82rem; font-weight: 500;
+      color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase;
+    }
+
+    .status-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 18px;
+      background: var(--card);
+      border: 1px solid var(--border2);
+      border-radius: 999px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem; color: var(--muted);
+      backdrop-filter: blur(12px);
+      transition: border-color 0.3s;
+    }
+
+    .status-pill:hover { border-color: rgba(56,189,248,0.35); }
+
+    .live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 10px var(--green);
+      animation: livePulse 2s ease-in-out infinite;
+    }
+
+    @keyframes livePulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.5; transform: scale(0.75); }
+    }
+
+    /* ═══ HERO ═══ */
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) 340px;
+      gap: 18px; margin-bottom: 18px; align-items: stretch;
+    }
+
+    /* NOW card */
+    .now {
+      position: relative; overflow: hidden;
+      border-radius: 20px;
+      border: 1px solid var(--border2);
+      background: var(--card);
+      padding: 32px;
+      min-height: 370px;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+
+    .now::before {
+      content: '';
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 70% 55% at 10% 10%, rgba(56,189,248,0.10) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 40% at 90% 90%, rgba(129,140,248,0.08) 0%, transparent 55%);
+      pointer-events: none;
+    }
+
+    /* Decorative circle */
+    .now::after {
+      content: '';
+      position: absolute;
+      right: -60px; top: -60px;
+      width: 280px; height: 280px;
+      border-radius: 50%;
+      border: 1px solid rgba(56,189,248,0.08);
+      pointer-events: none;
+    }
+
+    .now > * { position: relative; z-index: 1; }
+
+    .place-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .place {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.9rem; font-weight: 600; color: var(--blue);
+      letter-spacing: 0.03em;
+    }
+
+    .place svg { opacity: 0.8; }
+
+    .reload {
+      width: 40px; height: 40px;
+      display: grid; place-items: center;
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .reload:hover { border-color: var(--blue); color: var(--blue); box-shadow: 0 0 18px var(--glow); }
+    .reload:disabled { opacity: 0.4; cursor: default; }
+
+    .temp-row {
+      display: flex; align-items: flex-end; gap: 20px; margin-bottom: 24px;
+    }
+
+    .temp {
+      font-size: clamp(5rem, 12vw, 9rem);
+      font-weight: 800; line-height: 0.85;
+      letter-spacing: -0.04em;
+      background: linear-gradient(160deg, #fff 30%, var(--blue) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .condition-block { padding-bottom: 4px; }
+
+    .condition-block h2 {
+      font-size: clamp(1.3rem, 3.5vw, 2.2rem);
+      font-weight: 700; line-height: 1.1; margin-bottom: 10px;
+      color: var(--text);
+    }
+
+    .condition-block p {
+      font-size: 0.9rem; color: var(--muted); line-height: 1.65; max-width: 38rem;
+    }
+
+    /* mini stat cards inside hero */
+    .mini-grid {
+      display: grid; grid-template-columns: repeat(4,1fr); gap: 10px;
+    }
+
+    .mini {
+      padding: 14px 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: border-color 0.2s;
+    }
+    .mini:hover { border-color: var(--border2); }
+
+    .mini .mini-label {
+      display: block; font-size: 0.72rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--muted); margin-bottom: 8px;
+    }
+
+    .mini .mini-val {
+      display: block; font-size: 1.2rem; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace; color: var(--text);
+    }
+
+    /* ═══ SIDE ═══ */
+    .side { display: flex; flex-direction: column; gap: 18px; }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .panel:hover { border-color: var(--border2); }
+
+    /* toolbox */
+    .toolbox { padding: 22px; }
+
+    .panel-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .panel-header h3 {
+      font-size: 0.95rem; font-weight: 700;
+      color: var(--text); letter-spacing: 0.01em;
+    }
+
+    .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      padding: 3px 9px; border-radius: 999px;
+      background: rgba(56,189,248,0.12); color: var(--blue);
+      border: 1px solid rgba(56,189,248,0.22);
+    }
+
+    .tool-list { display: grid; gap: 8px; }
+
+    .tool {
+      display: grid; grid-template-columns: 40px 1fr auto;
+      gap: 12px; align-items: center;
+      padding: 12px; border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.025);
+      transition: all 0.2s;
+    }
+    .tool:hover { background: rgba(56,189,248,0.05); border-color: var(--border2); }
+
+    .tool-icon {
+      width: 40px; height: 40px;
+      display: grid; place-items: center;
+      border-radius: 10px;
+    }
+    .tool-icon.rain  { background: rgba(56,189,248,0.15); color: var(--blue); }
+    .tool-icon.sun   { background: rgba(251,191,36,0.15); color: var(--amber); }
+    .tool-icon.wind  { background: rgba(129,140,248,0.15); color: var(--violet); }
+
+    .tool-name {
+      font-size: 0.82rem; font-weight: 600; color: var(--text);
+      display: block; margin-bottom: 3px;
+    }
+    .tool-sub  {
+      font-size: 0.72rem; color: var(--muted); display: block;
+    }
+
+    .tool-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.05rem; font-weight: 700; color: var(--cyan);
+    }
+
+    /* alert */
+    .alert-panel {
+      padding: 22px;
+      background: linear-gradient(135deg,
+        rgba(248,113,113,0.07) 0%,
+        rgba(251,191,36,0.06) 100%);
+      border-color: rgba(248,113,113,0.18);
+    }
+
+    .alert-icon-row {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    }
+
+    .alert-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--amber); box-shadow: 0 0 8px var(--amber);
+      animation: livePulse 2s ease-in-out infinite;
+    }
+
+    .alert-panel h3 { font-size: 0.92rem; font-weight: 700; color: var(--amber); }
+    .alert-panel p  { font-size: 0.84rem; color: var(--muted); line-height: 1.65; }
+
+    /* ═══ LOWER GRID ═══ */
+    .section-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 22px 0;
+    }
+    .section-header h3  { font-size: 0.95rem; font-weight: 700; color: var(--text); }
+    .section-header span{ font-size: 0.78rem; color: var(--muted); font-family: 'JetBrains Mono',monospace; }
+
+    .main-grid {
+      display: grid; grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px; align-items: start; margin-bottom: 18px;
+    }
+    .main-grid > div { display: flex; flex-direction: column; gap: 18px; }
+
+    /* hourly */
+    .hourly {
+      display: grid; grid-template-columns: repeat(8, minmax(90px,1fr));
+      gap: 8px; padding: 16px 22px 22px;
+      overflow-x: auto;
+      scrollbar-width: thin; scrollbar-color: var(--dim) transparent;
+    }
+
+    .hour {
+      padding: 14px 10px; border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.025);
+      text-align: center;
+      transition: all 0.2s;
+      min-width: 90px;
+    }
+    .hour:hover { border-color: var(--border2); background: rgba(56,189,248,0.06); }
+
+    .hour strong {
+      display: block; font-size: 0.76rem; font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted); margin-bottom: 10px;
+    }
+
+    .hour .hour-icon { display: flex; justify-content: center; margin-bottom: 8px; }
+    .hour .hour-icon svg { color: var(--blue); }
+
+    .hour .deg {
+      display: block; font-size: 1.25rem; font-weight: 700;
+      font-family: 'JetBrains Mono', monospace; color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .hour .rain {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 0.75rem; font-weight: 700;
+      color: var(--cyan);
+    }
+
+    /* 7-day */
+    .days { display: grid; gap: 6px; padding: 16px 22px 22px; }
+
+    .day {
+      display: grid; grid-template-columns: 64px 1fr auto;
+      align-items: center; gap: 14px;
+      padding: 12px 14px; border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      transition: all 0.2s;
+    }
+    .day:hover { background: rgba(56,189,248,0.04); border-color: var(--border2); }
+
+    .day strong {
+      font-size: 0.85rem; font-weight: 700; color: var(--text);
+    }
+
+    .bar {
+      height: 6px; border-radius: 999px;
+      background: rgba(255,255,255,0.06); overflow: hidden;
+    }
+    .bar span {
+      display: block; height: 100%; border-radius: inherit;
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+      transition: width 0.8s ease;
+    }
+
+    .day .temp-range {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem; font-weight: 600; color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* map */
+    .map-panel { min-height: 500px; }
+
+    #radarMap {
+      height: 430px; margin: 16px 22px 22px;
+      border-radius: 12px; overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    /* details */
+    .details {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      gap: 14px;
+    }
+
+    .detail {
+      padding: 20px 18px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      transition: all 0.25s;
+    }
+    .detail:hover { border-color: var(--border2); transform: translateY(-2px); }
+
+    .detail-icon {
+      width: 38px; height: 38px;
+      display: grid; place-items: center;
+      border-radius: 10px;
+      background: rgba(56,189,248,0.10);
+      color: var(--blue); margin-bottom: 14px;
+    }
+
+    .detail span  { display: block; font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+    .detail strong{ display: block; font-size: 1.3rem; font-weight: 700; margin-top: 6px; font-family: 'JetBrains Mono',monospace; color: var(--text); }
+
+    .loader { color: var(--muted); font-size: 0.85rem; padding: 16px 22px; }
+
+    /* ── animations ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .app > * { animation: fadeUp 0.5s ease both; }
+    .app > *:nth-child(1) { animation-delay: 0.05s; }
+    .app > *:nth-child(2) { animation-delay: 0.12s; }
+    .app > *:nth-child(3) { animation-delay: 0.19s; }
+    .app > *:nth-child(4) { animation-delay: 0.26s; }
+    .app > *:nth-child(5) { animation-delay: 0.33s; }
+
+    /* ── Leaflet dark override ── */
+    .leaflet-tile-pane { filter: brightness(0.55) saturate(0.8) hue-rotate(200deg); }
+    .leaflet-control-attribution { background: rgba(6,11,20,0.7) !important; color: var(--muted) !important; }
+    .leaflet-control-attribution a { color: var(--blue) !important; }
+    .leaflet-control-zoom a { background: var(--card) !important; color: var(--text) !important; border-color: var(--border) !important; }
+    .leaflet-control-zoom a:hover { background: var(--surface) !important; }
+    .leaflet-popup-content-wrapper { background: var(--card) !important; color: var(--text) !important; border: 1px solid var(--border2); }
+    .leaflet-popup-tip { background: var(--card) !important; }
+
+    /* ── responsive ── */
+    @media (max-width: 960px) {
+      .hero, .main-grid { grid-template-columns: 1fr; }
+      .side { flex-direction: row; }
+      .side > * { flex: 1; }
+      .details { grid-template-columns: repeat(2,1fr); }
+    }
+    @media (max-width: 640px) {
+      .mini-grid { grid-template-columns: repeat(2,1fr); }
+      .side { flex-direction: column; }
+      .details { grid-template-columns: repeat(2,1fr); }
+      .day { grid-template-columns: 56px 1fr; }
+      .day .temp-range { grid-column: 1/-1; }
+      #radarMap { height: 320px; }
+      .topbar { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+<main class="app">
+
+  <!-- ── TOPBAR ── -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">
+        <!-- Custom SVG logo -->
+        <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="logoGrad" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#38bdf8"/>
+              <stop offset="100%" stop-color="#818cf8"/>
+            </linearGradient>
+            <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <!-- Outer ring -->
+          <circle cx="26" cy="26" r="24" stroke="url(#logoGrad)" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.5"/>
+          <!-- Cloud body -->
+          <path d="M14 30a6 6 0 0 1 .85-11.8A9 9 0 0 1 32.5 22H33a7 7 0 0 1 .5 14H14z"
+                fill="url(#logoGrad)" opacity="0.9" filter="url(#glow)"/>
+          <!-- Rain drops -->
+          <line x1="20" y1="38" x2="18" y2="44" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+          <line x1="26" y1="39" x2="24" y2="45" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+          <line x1="32" y1="38" x2="30" y2="44" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+          <!-- Sun rays (top-right) -->
+          <circle cx="40" cy="13" r="4" fill="#fbbf24" opacity="0.85" filter="url(#glow)"/>
+          <line x1="40" y1="7"  x2="40" y2="5"  stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+          <line x1="45" y1="9"  x2="46" y2="8"  stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+          <line x1="46" y1="13" x2="48" y2="13" stroke="#fbbf24" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>Thanjavur Weather</h1>
+        <p>Live local conditions · Tamil Nadu</p>
+      </div>
+    </div>
+    <div class="status-pill">
+      <span class="live-dot"></span>
+      <span id="updatedAt">Fetching live data…</span>
+    </div>
+  </header>
+
+  <!-- ── HERO ── -->
+  <section class="hero">
+    <!-- NOW -->
+    <article class="now">
+      <div class="place-row">
+        <div class="place">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 13-8 13s-8-7-8-13a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Thanjavur, Tamil Nadu
+        </div>
+        <button class="reload" id="refreshBtn" aria-label="Refresh weather">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+      </div>
+
+      <div class="temp-row">
+        <div class="temp"><span id="currentTemp">--</span>°</div>
+        <div class="condition-block">
+          <h2 id="conditionText">Loading…</h2>
+          <p id="weatherSummary">Retrieving live temperature, rain probability, wind and humidity for Thanjavur…</p>
+        </div>
+      </div>
+
+      <div class="mini-grid">
+        <div class="mini">
+          <span class="mini-label">Feels like</span>
+          <span class="mini-val" id="feelsLike">--°</span>
+        </div>
+        <div class="mini">
+          <span class="mini-label">Rain now</span>
+          <span class="mini-val" id="rainNow">--%</span>
+        </div>
+        <div class="mini">
+          <span class="mini-label">Wind</span>
+          <span class="mini-val" id="windNow">-- km/h</span>
+        </div>
+        <div class="mini">
+          <span class="mini-label">Humidity</span>
+          <span class="mini-val" id="humidityNow">--%</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- SIDE -->
+    <aside class="side">
+      <!-- Tools -->
+      <div class="panel toolbox">
+        <div class="panel-header">
+          <h3>Local Metrics</h3>
+          <span class="badge">Live</span>
+        </div>
+        <div class="tool-list">
+          <div class="tool">
+            <div class="tool-icon rain"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 13v8"/><path d="M8 13v8"/><path d="M12 15v8"/><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/></svg></div>
+            <div>
+              <span class="tool-name">Peak rain window</span>
+              <span class="tool-sub" id="rainWindow">Finding peak hours…</span>
+            </div>
+            <span class="tool-val" id="peakRain">--%</span>
+          </div>
+          <div class="tool">
+            <div class="tool-icon sun"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></div>
+            <div>
+              <span class="tool-name">UV Index</span>
+              <span class="tool-sub" id="uvLabel">Checking level…</span>
+            </div>
+            <span class="tool-val" id="uvIndex">--</span>
+          </div>
+          <div class="tool">
+            <div class="tool-icon wind"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/></svg></div>
+            <div>
+              <span class="tool-name">Wind Direction</span>
+              <span class="tool-sub" id="windDirectionLabel">Current bearing…</span>
+            </div>
+            <span class="tool-val" id="windDirection">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert -->
+      <div class="panel alert-panel">
+        <div class="alert-icon-row">
+          <span class="alert-dot"></span>
+          <h3>Weather Advisory</h3>
+        </div>
+        <p id="alertText">Live guidance loads with the Thanjavur forecast.</p>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ── MAIN GRID ── -->
+  <section class="main-grid">
+    <div>
+      <!-- Hourly -->
+      <div class="panel">
+        <div class="section-header">
+          <h3>Rain Chance by Hour</h3>
+          <span>Next 8 hours</span>
+        </div>
+        <div class="hourly" id="hourlyList">
+          <span class="loader">Loading hourly forecast…</span>
+        </div>
+      </div>
+
+      <!-- 7-day -->
+      <div class="panel">
+        <div class="section-header">
+          <h3>7-Day Outlook</h3>
+          <span>Temp range · rain %</span>
+        </div>
+        <div class="days" id="dailyList">
+          <span class="loader">Loading weekly forecast…</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div class="panel map-panel">
+      <div class="section-header">
+        <h3>Radar · Thanjavur</h3>
+        <span>Rain layer + marker</span>
+      </div>
+      <div id="radarMap" aria-label="Radar map centred on Thanjavur"></div>
+    </div>
+  </section>
+
+  <!-- ── DETAILS ── -->
+  <section class="details">
+    <div class="detail">
+      <div class="detail-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      </div>
+      <span>Pressure</span><strong id="pressure">-- hPa</strong>
+    </div>
+    <div class="detail">
+      <div class="detail-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </div>
+      <span>Visibility</span><strong id="visibility">-- km</strong>
+    </div>
+    <div class="detail">
+      <div class="detail-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="8 6 12 2 16 6"/></svg>
+      </div>
+      <span>Sunrise</span><strong id="sunrise">--</strong>
+    </div>
+    <div class="detail">
+      <div class="detail-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="16 5 12 9 8 5"/></svg>
+      </div>
+      <span>Sunset</span><strong id="sunset">--</strong>
+    </div>
+  </section>
+
+</main>
+
+<script>
+const THANJAVUR = { lat: 10.7867, lon: 79.1378 };
+const weatherUrl = new URL("https://api.open-meteo.com/v1/forecast");
+weatherUrl.search = new URLSearchParams({
+  latitude: THANJAVUR.lat, longitude: THANJAVUR.lon,
+  current: "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m",
+  hourly:  "temperature_2m,precipitation_probability,weather_code,wind_speed_10m,uv_index,visibility",
+  daily:   "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max",
+  timezone: "Asia/Kolkata", forecast_days: 7
+}).toString();
+
+const weatherCodes = {0:"Clear sky",1:"Mainly clear",2:"Partly cloudy",3:"Overcast",45:"Fog",48:"Rime fog",51:"Light drizzle",53:"Moderate drizzle",55:"Dense drizzle",61:"Light rain",63:"Moderate rain",65:"Heavy rain",80:"Rain showers",81:"Strong showers",82:"Violent showers",95:"Thunderstorm",96:"Thunderstorm + hail"};
+
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+const fmtTime = v => new Date(v).toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"});
+const fmtDay  = v => new Date(v).toLocaleDateString("en-IN",{weekday:"short"});
+const km = m => `${Math.round((m||0)/1000)} km`;
+
+function windCompass(d){return["N","NE","E","SE","S","SW","W","NW"][Math.round(d/45)%8];}
+function uvText(v){return v>=8?"Very high":v>=6?"High":v>=3?"Moderate":"Low";}
+
+function weatherIconSVG(code, size=22) {
+  const s = size;
+  if ([61,63,65,80,81,82].includes(code))
+    return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 13v8"/><path d="M8 13v8"/><path d="M12 15v8"/><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/></svg>`;
+  if ([51,53,55].includes(code))
+    return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg>`;
+  if ([95,96].includes(code))
+    return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`;
+  if ([45,48].includes(code))
+    return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 17v.01"/><path d="M12 20v.01"/><path d="M16 17v.01"/><path d="M16 20v.01"/><path d="M8 17v.01"/><path d="M8 20v.01"/></svg>`;
+  if ([2,3].includes(code))
+    return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>`;
+  // sun
+  return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>`;
+}
+
+async function loadWeather() {
+  $("refreshBtn").disabled = true;
+  try {
+    const res = await fetch(weatherUrl);
+    if (!res.ok) throw new Error("Request failed");
+    renderWeather(await res.json());
+    $("updatedAt").textContent = `Updated ${new Date().toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit"})}`;
+  } catch(e) {
+    $("conditionText").textContent = "Data unavailable";
+    $("weatherSummary").textContent = "The forecast service could not be reached. Check your connection and refresh.";
+    $("updatedAt").textContent = "Update failed";
+  } finally {
+    $("refreshBtn").disabled = false;
+  }
+}
+
+function renderWeather(data) {
+  const cur=data.current, hr=data.hourly, dy=data.daily;
+  const ni = Math.max(0, hr.time.findIndex(t => t >= cur.time));
+  const next = hr.time.slice(ni,ni+8).map((t,i)=>({
+    time:t, temp:Math.round(hr.temperature_2m[ni+i]),
+    rain:hr.precipitation_probability[ni+i]??0,
+    code:hr.weather_code[ni+i],
+    uv:hr.uv_index[ni+i]??0,
+    vis:hr.visibility[ni+i]??0
+  }));
+  const peak = next.reduce((mx,h)=>h.rain>mx.rain?h:mx, next[0]);
+  const todayRain = dy.precipitation_probability_max[0]??0;
+  const cond = weatherCodes[cur.weather_code]||"Changing weather";
+
+  $("currentTemp").textContent = Math.round(cur.temperature_2m);
+  $("conditionText").textContent = cond;
+  $("feelsLike").textContent = `${Math.round(cur.apparent_temperature)}°C`;
+  $("rainNow").textContent    = `${next[0].rain}%`;
+  $("windNow").textContent    = `${Math.round(cur.wind_speed_10m)} km/h`;
+  $("humidityNow").textContent= `${cur.relative_humidity_2m}%`;
+  $("peakRain").textContent   = `${peak.rain}%`;
+  $("rainWindow").textContent = peak ? fmtTime(peak.time) : "No rain signal";
+  $("uvIndex").textContent    = Math.round(dy.uv_index_max[0]??next[0].uv);
+  $("uvLabel").textContent    = uvText(dy.uv_index_max[0]??0);
+  $("windDirection").textContent      = windCompass(cur.wind_direction_10m);
+  $("windDirectionLabel").textContent = `${Math.round(cur.wind_direction_10m)}°`;
+  $("pressure").textContent   = `${Math.round(cur.surface_pressure)} hPa`;
+  $("visibility").textContent = km(next[0].vis);
+  $("sunrise").textContent    = fmtTime(dy.sunrise[0]);
+  $("sunset").textContent     = fmtTime(dy.sunset[0]);
+  $("weatherSummary").textContent = `Feels like ${Math.round(cur.apparent_temperature)}°C with ${cur.relative_humidity_2m}% humidity. Today's highest rain chance is ${todayRain}%.`;
+  $("alertText").textContent  = guidance(todayRain, cur.wind_speed_10m, dy.uv_index_max[0]??0);
+
+  $("hourlyList").innerHTML = next.map(h=>`
+    <div class="hour">
+      <strong>${fmtTime(h.time)}</strong>
+      <div class="hour-icon">${weatherIconSVG(h.code,22)}</div>
+      <span class="deg">${h.temp}°</span>
+      <span class="rain">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 0 1 0 20c-5.52 0-10-4-10-9a9 9 0 0 1 10-11z"/></svg>
+        ${h.rain}%
+      </span>
+    </div>`).join("");
+
+  $("dailyList").innerHTML = dy.time.map((d,i)=>{
+    const rain=dy.precipitation_probability_max[i]??0;
+    const mx=Math.round(dy.temperature_2m_max[i]);
+    const mn=Math.round(dy.temperature_2m_min[i]);
+    return `<div class="day">
+      <strong>${i===0?"Today":fmtDay(d)}</strong>
+      <div class="bar"><span style="width:${Math.max(4,rain)}%"></span></div>
+      <span class="temp-range">${mn}° / ${mx}° · ${rain}%</span>
+    </div>`;
+  }).join("");
+}
+
+function guidance(r,w,uv){
+  if(r>=70) return "High rain chance near Thanjavur. Keep an umbrella ready and watch low-lying roads during evening travel.";
+  if(w>=28) return "Wind is active today. Secure light balcony items and take care on open roads.";
+  if(uv>=7) return "UV is strong. Shade, water, and sunscreen will matter most during late morning and afternoon.";
+  if(r>=35) return "Scattered rain is possible. A short shower can arrive quickly — plan outdoor work with a buffer.";
+  return "No major weather risk showing right now. Conditions look manageable for local travel and outdoor plans.";
+}
+
+async function setupRadar() {
+  const map = L.map("radarMap",{zoomControl:true,attributionControl:true}).setView([THANJAVUR.lat,THANJAVUR.lon],9);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"© OpenStreetMap"}).addTo(map);
+
+  // Custom dark marker
+  const icon = L.divIcon({
+    className:'',
+    html:`<div style="width:14px;height:14px;border-radius:50%;background:#38bdf8;box-shadow:0 0 14px #38bdf8,0 0 28px rgba(56,189,248,0.4);border:2px solid #fff"></div>`,
+    iconSize:[14,14], iconAnchor:[7,7]
+  });
+  L.marker([THANJAVUR.lat,THANJAVUR.lon],{icon}).addTo(map).bindPopup("<b>Thanjavur</b>").openPopup();
+  L.circle([THANJAVUR.lat,THANJAVUR.lon],{radius:26000,color:"#38bdf8",fillColor:"#38bdf8",fillOpacity:0.06,weight:1.5}).addTo(map);
+
+  try {
+    const r = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+    const radar = await r.json();
+    const frame = radar.radar.past.at(-1);
+    if(frame) L.tileLayer(`${radar.host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`,{opacity:0.65,attribution:"RainViewer"}).addTo(map);
+  } catch(e){ console.warn("Radar unavailable",e); }
+}
+
+$("refreshBtn").addEventListener("click", loadWeather);
+setupRadar();
+loadWeather();
+</script>
+</body>
+</html>
