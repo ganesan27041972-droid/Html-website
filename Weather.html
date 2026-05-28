@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thanjavur Weather Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --ink: #102124;
+      --muted: #657277;
+      --line: rgba(16, 33, 36, 0.12);
+      --paper: #fffdf8;
+      --mist: #edf7f3;
+      --sky: #dff4ff;
+      --teal: #0d8b8e;
+      --green: #2f9d6b;
+      --amber: #f2b84b;
+      --coral: #e86f51;
+      --violet: #6c63bf;
+      --shadow: 0 24px 80px rgba(24, 58, 62, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(242, 184, 75, 0.22), transparent 34rem),
+        linear-gradient(135deg, #e5f7ff 0%, #f7fbef 48%, #fff5ea 100%);
+    }
+
+    button, input {
+      font: inherit;
+    }
+
+    .app {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 26px 0 40px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: linear-gradient(145deg, var(--teal), var(--green));
+      color: white;
+      box-shadow: 0 12px 28px rgba(13, 139, 142, 0.24);
+      flex: 0 0 auto;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(1.15rem, 3vw, 1.7rem);
+      line-height: 1.05;
+    }
+
+    .brand p {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(18px);
+      white-space: nowrap;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      gap: 18px;
+      align-items: stretch;
+      margin-bottom: 18px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 253, 248, 0.78);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      overflow: hidden;
+    }
+
+    .now {
+      position: relative;
+      min-height: 354px;
+      padding: 28px;
+      background:
+        linear-gradient(115deg, rgba(13, 139, 142, 0.92), rgba(47, 157, 107, 0.82)),
+        url("https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1600&q=80") center/cover;
+      color: white;
+    }
+
+    .now::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.18));
+      pointer-events: none;
+    }
+
+    .now > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .place-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 34px;
+    }
+
+    .place {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .reload {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.38);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.16);
+      color: white;
+      cursor: pointer;
+    }
+
+    .temp-wrap {
+      display: grid;
+      grid-template-columns: auto minmax(160px, 1fr);
+      align-items: end;
+      gap: 18px;
+    }
+
+    .temp {
+      font-size: clamp(4.4rem, 13vw, 8.8rem);
+      font-weight: 800;
+      line-height: 0.86;
+      letter-spacing: 0;
+    }
+
+    .condition {
+      padding-bottom: 8px;
+    }
+
+    .condition h2 {
+      margin: 0 0 8px;
+      font-size: clamp(1.4rem, 4vw, 2.6rem);
+      line-height: 1;
+    }
+
+    .condition p {
+      max-width: 44rem;
+      margin: 0;
+      color: rgba(255, 255, 255, 0.84);
+      line-height: 1.6;
+    }
+
+    .mini-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 30px;
+    }
+
+    .mini {
+      min-height: 88px;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    .mini span {
+      display: block;
+      color: rgba(255, 255, 255, 0.74);
+      font-size: 0.8rem;
+    }
+
+    .mini strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 1.22rem;
+    }
+
+    .side {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 18px;
+    }
+
+    .toolbox {
+      padding: 20px;
+    }
+
+    .toolbox h3,
+    .section-title h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .tool-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .tool {
+      display: grid;
+      grid-template-columns: 38px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.62);
+    }
+
+    .tool i {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      color: white;
+    }
+
+    .tool:nth-child(1) i { background: var(--teal); }
+    .tool:nth-child(2) i { background: var(--amber); color: #3b2a09; }
+    .tool:nth-child(3) i { background: var(--coral); }
+
+    .tool span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-top: 2px;
+    }
+
+    .tool strong:last-child {
+      font-size: 1.05rem;
+      white-space: nowrap;
+    }
+
+    .alert {
+      min-height: 120px;
+      padding: 20px;
+      background: linear-gradient(145deg, rgba(232, 111, 81, 0.16), rgba(242, 184, 75, 0.16));
+    }
+
+    .alert p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 18px 20px 0;
+    }
+
+    .section-title span {
+      color: var(--muted);
+      font-size: 0.86rem;
+      white-space: nowrap;
+    }
+
+    .hourly {
+      padding: 18px 20px 20px;
+      display: grid;
+      grid-template-columns: repeat(8, minmax(82px, 1fr));
+      gap: 10px;
+      overflow-x: auto;
+    }
+
+    .hour {
+      min-width: 82px;
+      padding: 14px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+      text-align: center;
+    }
+
+    .hour strong,
+    .day strong {
+      display: block;
+      font-size: 0.86rem;
+    }
+
+    .hour .rain {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 11px;
+      color: var(--teal);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .hour .deg {
+      display: block;
+      margin-top: 12px;
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    .map-panel {
+      min-height: 506px;
+    }
+
+    #radarMap {
+      height: 444px;
+      margin: 18px 20px 20px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: var(--mist);
+    }
+
+    .days {
+      display: grid;
+      gap: 10px;
+      padding: 18px 20px 20px;
+    }
+
+    .day {
+      display: grid;
+      grid-template-columns: 78px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: #e7ece6;
+      overflow: hidden;
+    }
+
+    .bar span {
+      display: block;
+      height: 100%;
+      width: 45%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--green), var(--amber), var(--coral));
+    }
+
+    .details {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+
+    .detail {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 253, 248, 0.78);
+      box-shadow: 0 14px 44px rgba(24, 58, 62, 0.09);
+    }
+
+    .detail i {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--mist);
+      color: var(--teal);
+      margin-bottom: 14px;
+    }
+
+    .detail span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.84rem;
+    }
+
+    .detail strong {
+      display: block;
+      margin-top: 7px;
+      font-size: 1.28rem;
+    }
+
+    .loader {
+      color: var(--muted);
+    }
+
+    @media (max-width: 980px) {
+      .hero,
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .side {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto;
+      }
+
+      .details {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 680px) {
+      .app {
+        width: min(100% - 20px, 1180px);
+        padding-top: 14px;
+      }
+
+      .topbar,
+      .place-row {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .status-pill {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .now {
+        min-height: 520px;
+        padding: 20px;
+      }
+
+      .temp-wrap,
+      .mini-grid,
+      .side,
+      .details {
+        grid-template-columns: 1fr;
+      }
+
+      .mini-grid {
+        margin-top: 22px;
+      }
+
+      .day {
+        grid-template-columns: 70px 1fr;
+      }
+
+      .day .temp-range {
+        grid-column: 1 / -1;
+      }
+
+      #radarMap {
+        height: 340px;
+        margin-inline: 12px;
+      }
+
+      .section-title {
+        padding-inline: 12px;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .hourly,
+      .days {
+        padding-inline: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark"><i data-lucide="cloud-sun"></i></div>
+        <div>
+          <h1>Thanjavur Weather Tracker</h1>
+          <p>Live local conditions for Thanjavur, Tamil Nadu</p>
+        </div>
+      </div>
+      <div class="status-pill">
+        <i data-lucide="clock-3" size="18"></i>
+        <span id="updatedAt">Updating live data</span>
+      </div>
+    </header>
+
+    <section class="hero">
+      <article class="panel now">
+        <div class="place-row">
+          <div class="place">
+            <i data-lucide="map-pin"></i>
+            <span>Thanjavur, Tamil Nadu</span>
+          </div>
+          <button class="reload" id="refreshBtn" aria-label="Refresh weather">
+            <i data-lucide="refresh-cw"></i>
+          </button>
+        </div>
+
+        <div class="temp-wrap">
+          <div class="temp"><span id="currentTemp">--</span>°</div>
+          <div class="condition">
+            <h2 id="conditionText">Loading weather</h2>
+            <p id="weatherSummary">Checking temperature, rain chances, wind, humidity, and local pressure for the Thanjavur area.</p>
+          </div>
+        </div>
+
+        <div class="mini-grid">
+          <div class="mini">
+            <span>Feels like</span>
+            <strong id="feelsLike">--°C</strong>
+          </div>
+          <div class="mini">
+            <span>Rain chance now</span>
+            <strong id="rainNow">--%</strong>
+          </div>
+          <div class="mini">
+            <span>Wind</span>
+            <strong id="windNow">-- km/h</strong>
+          </div>
+          <div class="mini">
+            <span>Humidity</span>
+            <strong id="humidityNow">--%</strong>
+          </div>
+        </div>
+      </article>
+
+      <aside class="side">
+        <article class="panel toolbox">
+          <h3>Local Tools</h3>
+          <div class="tool-list">
+            <div class="tool">
+              <i><span data-lucide="cloud-rain"></span></i>
+              <strong>Peak rain window<span id="rainWindow">Finding hours</span></strong>
+              <strong id="peakRain">--%</strong>
+            </div>
+            <div class="tool">
+              <i><span data-lucide="sun"></span></i>
+              <strong>UV index<span id="uvLabel">Checking level</span></strong>
+              <strong id="uvIndex">--</strong>
+            </div>
+            <div class="tool">
+              <i><span data-lucide="navigation"></span></i>
+              <strong>Wind direction<span id="windDirectionLabel">Current flow</span></strong>
+              <strong id="windDirection">--</strong>
+            </div>
+          </div>
+        </article>
+
+        <article class="panel alert">
+          <h3>Weather Note</h3>
+          <p id="alertText">Live guidance will appear after the Thanjavur forecast loads.</p>
+        </article>
+      </aside>
+    </section>
+
+    <section class="main-grid">
+      <div>
+        <article class="panel">
+          <div class="section-title">
+            <h3>Rain Chance by Hour</h3>
+            <span>Next 8 hours</span>
+          </div>
+          <div class="hourly" id="hourlyList">
+            <span class="loader">Loading hourly forecast...</span>
+          </div>
+        </article>
+
+        <article class="panel" style="margin-top: 18px;">
+          <div class="section-title">
+            <h3>7 Day Outlook</h3>
+            <span>Temperature range and rain probability</span>
+          </div>
+          <div class="days" id="dailyList">
+            <span class="loader">Loading weekly forecast...</span>
+          </div>
+        </article>
+      </div>
+
+      <article class="panel map-panel">
+        <div class="section-title">
+          <h3>Radar Around Thanjavur</h3>
+          <span>Rain layer + local marker</span>
+        </div>
+        <div id="radarMap" aria-label="Radar map centered on Thanjavur"></div>
+      </article>
+    </section>
+
+    <section class="details">
+      <div class="detail">
+        <i><span data-lucide="gauge"></span></i>
+        <span>Pressure</span>
+        <strong id="pressure">-- hPa</strong>
+      </div>
+      <div class="detail">
+        <i><span data-lucide="eye"></span></i>
+        <span>Visibility</span>
+        <strong id="visibility">-- km</strong>
+      </div>
+      <div class="detail">
+        <i><span data-lucide="sunrise"></span></i>
+        <span>Sunrise</span>
+        <strong id="sunrise">--</strong>
+      </div>
+      <div class="detail">
+        <i><span data-lucide="sunset"></span></i>
+        <span>Sunset</span>
+        <strong id="sunset">--</strong>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const THANJAVUR = { lat: 10.7867, lon: 79.1378 };
+    const weatherUrl = new URL("https://api.open-meteo.com/v1/forecast");
+    weatherUrl.search = new URLSearchParams({
+      latitude: THANJAVUR.lat,
+      longitude: THANJAVUR.lon,
+      current: "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,surface_pressure,wind_speed_10m,wind_direction_10m",
+      hourly: "temperature_2m,precipitation_probability,weather_code,wind_speed_10m,uv_index,visibility",
+      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset,uv_index_max",
+      timezone: "Asia/Kolkata",
+      forecast_days: 7
+    }).toString();
+
+    const weatherCodes = {
+      0: "Clear sky",
+      1: "Mainly clear",
+      2: "Partly cloudy",
+      3: "Overcast",
+      45: "Fog",
+      48: "Depositing rime fog",
+      51: "Light drizzle",
+      53: "Moderate drizzle",
+      55: "Dense drizzle",
+      61: "Light rain",
+      63: "Moderate rain",
+      65: "Heavy rain",
+      80: "Rain showers",
+      81: "Strong showers",
+      82: "Violent showers",
+      95: "Thunderstorm",
+      96: "Thunderstorm with hail"
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const fmtTime = (value) => new Date(value).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+    const fmtDay = (value) => new Date(value).toLocaleDateString("en-IN", { weekday: "short" });
+    const km = (meters) => `${Math.round((meters || 0) / 1000)} km`;
+
+    function windCompass(degrees) {
+      const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+      return dirs[Math.round(degrees / 45) % 8];
+    }
+
+    function uvText(value) {
+      if (value >= 8) return "Very high";
+      if (value >= 6) return "High";
+      if (value >= 3) return "Moderate";
+      return "Low";
+    }
+
+    function weatherIcon(code) {
+      if ([61, 63, 65, 80, 81, 82].includes(code)) return "cloud-rain";
+      if ([51, 53, 55].includes(code)) return "cloud-drizzle";
+      if ([95, 96].includes(code)) return "cloud-lightning";
+      if ([45, 48].includes(code)) return "cloud-fog";
+      if ([2, 3].includes(code)) return "cloud";
+      return "sun";
+    }
+
+    function createIcon(name, size = 22) {
+      return `<i data-lucide="${name}" width="${size}" height="${size}"></i>`;
+    }
+
+    async function loadWeather() {
+      $("refreshBtn").disabled = true;
+      try {
+        const response = await fetch(weatherUrl);
+        if (!response.ok) throw new Error("Weather request failed");
+        const data = await response.json();
+        renderWeather(data);
+        $("updatedAt").textContent = `Updated ${new Date().toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`;
+      } catch (error) {
+        $("conditionText").textContent = "Weather data unavailable";
+        $("weatherSummary").textContent = "The live forecast service could not be reached. Check your connection and refresh again.";
+        $("updatedAt").textContent = "Update failed";
+      } finally {
+        $("refreshBtn").disabled = false;
+        lucide.createIcons();
+      }
+    }
+
+    function renderWeather(data) {
+      const current = data.current;
+      const hourly = data.hourly;
+      const daily = data.daily;
+      const nowIndex = Math.max(0, hourly.time.findIndex((time) => time >= current.time));
+      const nextHours = hourly.time.slice(nowIndex, nowIndex + 8).map((time, index) => ({
+        time,
+        temp: Math.round(hourly.temperature_2m[nowIndex + index]),
+        rain: hourly.precipitation_probability[nowIndex + index] ?? 0,
+        code: hourly.weather_code[nowIndex + index],
+        uv: hourly.uv_index[nowIndex + index] ?? 0,
+        visibility: hourly.visibility[nowIndex + index] ?? 0
+      }));
+
+      const peak = nextHours.reduce((max, hour) => hour.rain > max.rain ? hour : max, nextHours[0]);
+      const todayRain = daily.precipitation_probability_max[0] ?? 0;
+      const condition = weatherCodes[current.weather_code] || "Changing weather";
+
+      $("currentTemp").textContent = Math.round(current.temperature_2m);
+      $("conditionText").textContent = condition;
+      $("feelsLike").textContent = `${Math.round(current.apparent_temperature)}°C`;
+      $("rainNow").textContent = `${nextHours[0].rain}%`;
+      $("windNow").textContent = `${Math.round(current.wind_speed_10m)} km/h`;
+      $("humidityNow").textContent = `${current.relative_humidity_2m}%`;
+      $("peakRain").textContent = `${peak.rain}%`;
+      $("rainWindow").textContent = peak ? fmtTime(peak.time) : "No rain signal";
+      $("uvIndex").textContent = Math.round(daily.uv_index_max[0] ?? nextHours[0].uv);
+      $("uvLabel").textContent = uvText(daily.uv_index_max[0] ?? nextHours[0].uv);
+      $("windDirection").textContent = windCompass(current.wind_direction_10m);
+      $("windDirectionLabel").textContent = `${Math.round(current.wind_direction_10m)}°`;
+      $("pressure").textContent = `${Math.round(current.surface_pressure)} hPa`;
+      $("visibility").textContent = km(nextHours[0].visibility);
+      $("sunrise").textContent = fmtTime(daily.sunrise[0]);
+      $("sunset").textContent = fmtTime(daily.sunset[0]);
+
+      $("weatherSummary").textContent = `Feels like ${Math.round(current.apparent_temperature)}°C with ${current.relative_humidity_2m}% humidity. Today's highest rain chance for Thanjavur is ${todayRain}%.`;
+      $("alertText").textContent = guidance(todayRain, current.wind_speed_10m, daily.uv_index_max[0] ?? 0);
+
+      $("hourlyList").innerHTML = nextHours.map((hour) => `
+        <div class="hour">
+          <strong>${fmtTime(hour.time)}</strong>
+          ${createIcon(weatherIcon(hour.code), 24)}
+          <span class="deg">${hour.temp}°</span>
+          <span class="rain">${createIcon("droplets", 15)} ${hour.rain}%</span>
+        </div>
+      `).join("");
+
+      $("dailyList").innerHTML = daily.time.map((day, index) => {
+        const rain = daily.precipitation_probability_max[index] ?? 0;
+        const max = Math.round(daily.temperature_2m_max[index]);
+        const min = Math.round(daily.temperature_2m_min[index]);
+        return `
+          <div class="day">
+            <strong>${index === 0 ? "Today" : fmtDay(day)}</strong>
+            <div class="bar"><span style="width:${Math.max(6, rain)}%"></span></div>
+            <strong class="temp-range">${min}° / ${max}° · ${rain}%</strong>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function guidance(rain, wind, uv) {
+      if (rain >= 70) return "High rain chance near Thanjavur. Keep an umbrella ready and watch low-lying roads during evening travel.";
+      if (wind >= 28) return "Wind is active today. Secure light balcony items and take care on open roads.";
+      if (uv >= 7) return "UV is strong. Shade, water, and sunscreen will matter most during late morning and afternoon.";
+      if (rain >= 35) return "Scattered rain is possible. A short shower can arrive quickly, so plan outdoor work with a buffer.";
+      return "No major weather risk showing right now. Conditions look manageable for local travel and outdoor plans.";
+    }
+
+    async function setupRadar() {
+      const map = L.map("radarMap", {
+        zoomControl: true,
+        attributionControl: true
+      }).setView([THANJAVUR.lat, THANJAVUR.lon], 9);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: "&copy; OpenStreetMap"
+      }).addTo(map);
+
+      L.marker([THANJAVUR.lat, THANJAVUR.lon]).addTo(map).bindPopup("Thanjavur").openPopup();
+      L.circle([THANJAVUR.lat, THANJAVUR.lon], {
+        radius: 26000,
+        color: "#0d8b8e",
+        fillColor: "#0d8b8e",
+        fillOpacity: 0.08,
+        weight: 2
+      }).addTo(map);
+
+      try {
+        const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+        const radar = await response.json();
+        const frame = radar.radar.past.at(-1);
+        if (frame) {
+          L.tileLayer(`${radar.host}${frame.path}/256/{z}/{x}/{y}/2/1_1.png`, {
+            opacity: 0.72,
+            attribution: "RainViewer"
+          }).addTo(map);
+        }
+      } catch (error) {
+        console.warn("Radar layer unavailable", error);
+      }
+    }
+
+    $("refreshBtn").addEventListener("click", loadWeather);
+    lucide.createIcons();
+    setupRadar();
+    loadWeather();
+  </script>
+</body>
+</html>
