@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify - Web Player: Music for everyone</title>
+  <!-- Google Fonts for premium modern typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome for standard premium Spotify iconography -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style copy.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <i class="fa-brands fa-spotify"></i>
+        <span>Spotify</span>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" id="nav-home">
+          <i class="fa-solid fa-house"></i>
+          <span>Home</span>
+        </a>
+        <a href="#" class="nav-item" id="nav-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <span>Search</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-library">
+        <div class="library-header">
+          <button class="library-title-btn">
+            <i class="fa-solid fa-lines-leaning"></i>
+            <span>Your Library</span>
+          </button>
+          <button class="add-btn" id="add-playlist-btn" title="Create playlist">
+            <i class="fa-solid fa-plus"></i>
+          </button>
+        </div>
+
+        <div class="library-scrollable">
+          <!-- Liked Songs Playlist Card -->
+          <div class="library-item" id="lib-liked-songs">
+            <div class="liked-badge">
+              <i class="fa-solid fa-heart"></i>
+            </div>
+            <div class="item-info">
+              <span class="item-title">Liked Songs</span>
+              <span class="item-sub">Playlist - <span id="liked-count-badge">0</span> songs</span>
+            </div>
+          </div>
+
+          <!-- Featured Cloudinary Playlist Card -->
+          <div class="library-item active" id="lib-hits">
+            <div class="playlist-art-gradient">
+              <i class="fa-solid fa-music"></i>
+            </div>
+            <div class="item-info">
+              <span class="item-title">Cloudinary Gold</span>
+              <span class="item-sub">Playlist - <span id="total-count-badge">0</span> songs</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN VIEWS PANEL -->
+    <main class="main-content" id="main-scrollable">
+      <!-- HEADER BAR -->
+      <header class="main-header">
+        <div class="header-navigation">
+          <button class="nav-arrow" id="nav-back-btn" title="Go back">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+          <button class="nav-arrow" id="nav-forward-btn" title="Go forward">
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+          
+          <!-- SEARCH BAR CONTAINER (Only visible in search mode) -->
+          <div class="search-bar-container" id="search-container">
+            <i class="fa-solid fa-magnifying-glass search-bar-icon"></i>
+            <input type="text" id="search-input" placeholder="What do you want to play?" autocomplete="off">
+            <button class="clear-search-btn" id="clear-search-btn" style="display: none;">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="header-actions">
+        </div>
+      </header>
+
+      <!-- DYNAMIC DUST GRID BACKGROUND -->
+      <div class="ambient-overlay" id="ambient-overlay"></div>
+
+      <!-- VIEW 1: HOME VIEW -->
+      <section class="content-view" id="view-home">
+        <div class="home-greeting">
+          <h1 id="greeting-text">Good Evening</h1>
+        </div>
+
+        <!-- 6-CARD QUICK GRID -->
+        <div class="quick-grid" id="quick-grid-container">
+          <!-- Dynamic rendering inside app.js -->
+        </div>
+
+        <!-- FEATURED SHELF: CLOUDINARY GOLD TRACKS -->
+        <div class="shelf-section">
+          <div class="shelf-header">
+            <h2>Cloudinary Gold</h2>
+            <span class="show-all">Show all</span>
+          </div>
+          
+          <!-- PLAYLIST TABLE VIEW (Main interactive list of 12 songs) -->
+          <div class="playlist-table-container">
+            <table class="tracklist-table">
+              <thead>
+                <tr>
+                  <th class="col-index">#</th>
+                  <th class="col-title">Title</th>
+                  <th class="col-album">Album</th>
+                  <th class="col-date">Date added</th>
+                  <th class="col-duration"><i class="fa-regular fa-clock"></i></th>
+                </tr>
+              </thead>
+              <tbody id="tracklist-tbody">
+                <!-- Dynamically populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- RECOMMENDED PODCASTS SHELF -->
+        <div class="shelf-section top-margin-shelf">
+          <div class="shelf-header">
+            <h2>Made For You</h2>
+            <span class="show-all">Show all</span>
+          </div>
+          <div class="card-grid">
+            <div class="playlist-card">
+              <div class="card-img-wrapper">
+                <div class="card-gradient bg-1">
+                  <i class="fa-solid fa-bolt"></i>
+                </div>
+                <button class="card-play-btn" id="shelf-play-1"><i class="fa-solid fa-play"></i></button>
+              </div>
+              <span class="card-title">Daily Mix 1</span>
+              <span class="card-description">Sid Sriram, A.R. Rahman, and more hits curated for you.</span>
+            </div>
+            
+            <div class="playlist-card">
+              <div class="card-img-wrapper">
+                <div class="card-gradient bg-2">
+                  <i class="fa-solid fa-fire-flame-curved"></i>
+                </div>
+                <button class="card-play-btn" id="shelf-play-2"><i class="fa-solid fa-play"></i></button>
+              </div>
+              <span class="card-title">Chill Vibes</span>
+              <span class="card-description">Unwind with premium acoustic melodies.</span>
+            </div>
+
+            <div class="playlist-card">
+              <div class="card-img-wrapper">
+                <div class="card-gradient bg-3">
+                  <i class="fa-solid fa-heart"></i>
+                </div>
+                <button class="card-play-btn" id="shelf-play-3"><i class="fa-solid fa-play"></i></button>
+              </div>
+              <span class="card-title">Retro Gold</span>
+              <span class="card-description">Nostalgic tracks from the late 90s and early 2000s.</span>
+            </div>
+
+            <div class="playlist-card">
+              <div class="card-img-wrapper">
+                <div class="card-gradient bg-4">
+                  <i class="fa-solid fa-guitar"></i>
+                </div>
+                <button class="card-play-btn" id="shelf-play-4"><i class="fa-solid fa-play"></i></button>
+              </div>
+              <span class="card-title">Focus Flow</span>
+              <span class="card-description">Instrumentals and rhythmic low-fi beats.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: SEARCH VIEW -->
+      <section class="content-view" id="view-search" style="display: none;">
+        <h2 class="search-view-title" id="search-title-text">Browse all</h2>
+        
+        <!-- SEARCH RESULTS CONTAINER -->
+        <div class="search-results-section" id="search-results-section" style="display: none;">
+          <div class="search-results-grid">
+            <!-- Top Result Card -->
+            <div class="top-result-card" id="top-result-card">
+              <h3>Top Result</h3>
+              <div class="top-result-content" id="top-result-content-container">
+                <!-- Dynamically rendered -->
+              </div>
+            </div>
+
+            <!-- Matching Songs List -->
+            <div class="matching-songs-container">
+              <h3>Songs</h3>
+              <div class="matching-songs-list" id="matching-songs-list">
+                <!-- Dynamically rendered -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BROWSE CATEGORIES GRID -->
+        <div class="categories-grid" id="search-categories-grid">
+          <div class="category-card" style="background-color: rgb(39, 133, 106);">
+            <span class="cat-title">Podcasts</span>
+            <img src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?q=80&w=200&auto=format&fit=crop" class="cat-img" alt="Podcasts">
+          </div>
+          <div class="category-card" style="background-color: rgb(30, 50, 100);">
+            <span class="cat-title">Live Events</span>
+            <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=200&auto=format&fit=crop" class="cat-img" alt="Live Events">
+          </div>
+          <div class="category-card" style="background-color: rgb(232, 17, 137);">
+            <span class="cat-title">Made For You</span>
+            <img src="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=200&auto=format&fit=crop" class="cat-img" alt="Made For You">
+          </div>
+          <div class="category-card" style="background-color: rgb(225, 51, 0);">
+            <span class="cat-title">New Releases</span>
+            <img src="https://images.unsplash.com/photo-1507838153414-b4b713384a76?q=80&w=200&auto=format&fit=crop" class="cat-img" alt="New Releases">
+          </div>
+          <div class="category-card" style="background-color: rgb(80, 155, 245);">
+            <span class="cat-title">Pop</span>
+            <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=200&auto=format&fit=crop" class="cat-img" alt="Pop">
+          </div>
+          <div class="category-card" style="background-color: rgb(240, 55, 165);">
+            <span class="cat-title">Hip-Hop</span>
+            <img src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?q=80&w=200&auto=format&fit=crop" class="cat-img" alt="Hip-Hop">
+          </div>
+          <div class="category-card" style="background-color: rgb(141, 103, 171);">
+            <span class="cat-title">Bollywood</span>
+            <img src="https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?q=80&w=200&auto=format&fit=crop" class="cat-img" alt="Bollywood">
+          </div>
+          <div class="category-card" style="background-color: rgb(186, 93, 7);">
+            <span class="cat-title">Punjabi</span>
+            <img src="https://images.unsplash.com/photo-1487180142328-054b783fc471?q=80&w=200&auto=format&fit=crop" class="cat-img" alt="Punjabi">
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: LIKED SONGS VIEW -->
+      <section class="content-view" id="view-liked" style="display: none;">
+        <!-- Large Gradient Banner -->
+        <div class="liked-banner">
+          <div class="liked-large-badge">
+            <i class="fa-solid fa-heart"></i>
+          </div>
+          <div class="liked-banner-details">
+            <span class="playlist-type">PLAYLIST</span>
+            <h1 class="playlist-title">Liked Songs</h1>
+            <div class="playlist-meta">
+              <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=50&auto=format&fit=crop" class="meta-avatar" alt="Avatar">
+              <span class="meta-user">Spotify User</span>
+              <span class="bullet">-</span>
+              <span class="meta-count" id="liked-count-text">0 songs</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PLAYLIST ACTIONS BAR -->
+        <div class="playlist-actions">
+          <button class="play-liked-btn" id="play-liked-main-btn">
+            <i class="fa-solid fa-play"></i>
+          </button>
+        </div>
+
+        <!-- LIKED SONGS TABLE -->
+        <div class="playlist-table-container">
+          <table class="tracklist-table">
+            <thead>
+              <tr>
+                <th class="col-index">#</th>
+                <th class="col-title">Title</th>
+                <th class="col-album">Album</th>
+                <th class="col-date">Date added</th>
+                <th class="col-duration"><i class="fa-regular fa-clock"></i></th>
+              </tr>
+            </thead>
+            <tbody id="liked-tracklist-tbody">
+              <!-- Empty state default, otherwise populated via JS -->
+            </tbody>
+          </table>
+          
+          <div class="empty-liked-state" id="empty-liked-state">
+            <i class="fa-regular fa-heart"></i>
+            <h2>Songs you like will appear here</h2>
+            <p>Save songs by clicking the heart icon on your player or lists.</p>
+            <button class="find-songs-btn" id="find-songs-btn">Find songs</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- RIGHT COLLAPSIBLE DETAILS SIDEBAR (NOW PLAYING VIEW) -->
+    <aside class="now-playing-panel" id="now-playing-panel">
+      <div class="panel-header">
+        <h3>Now Playing</h3>
+        <button class="close-panel-btn" id="close-panel-btn" title="Close panel">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="panel-scrollable">
+        <!-- Big Cover Art -->
+        <div class="panel-art-wrapper">
+          <div class="panel-cover-art" id="panel-cover-art">
+            <!-- Rendered in JS with gradients/visuals -->
+          </div>
+        </div>
+
+        <!-- Track Info -->
+        <div class="panel-track-details">
+          <div class="panel-track-text">
+            <a href="#" class="panel-track-title" id="panel-track-title">Select a track</a>
+            <a href="#" class="panel-track-artist" id="panel-track-artist">-</a>
+          </div>
+          <button class="panel-like-btn" id="panel-like-btn" title="Save to Liked Songs">
+            <i class="fa-regular fa-heart"></i>
+          </button>
+        </div>
+
+        <!-- Ambient Card containing Lyrics and Info -->
+        <div class="panel-lyrics-box">
+          <div class="lyrics-header">
+            <h4>Lyrics</h4>
+            <button class="expand-lyrics-btn">Show Full</button>
+          </div>
+          <div class="lyrics-scroll-container" id="panel-lyrics-container">
+            <p class="lyrics-line active">Play a song to view visual lyrics...</p>
+          </div>
+        </div>
+
+        <!-- Next in Queue Details -->
+        <div class="panel-queue-box">
+          <h4>Next In Queue</h4>
+          <div class="queue-item-card" id="panel-queue-card">
+            <div class="queue-card-art" id="panel-queue-art"></div>
+            <div class="queue-card-text">
+              <span class="queue-title" id="panel-queue-title">Queue is empty</span>
+              <span class="queue-artist" id="panel-queue-artist">-</span>
+            </div>
+            <i class="fa-solid fa-volume-high queue-play-icon"></i>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- BOTTOM PLAYBACK PLAYER CONSOLE -->
+  <footer class="player-bar">
+    <!-- LEFT PANEL: SONG PREVIEW -->
+    <div class="player-track-info">
+      <div class="player-mini-art" id="player-mini-art"></div>
+      <div class="player-text">
+        <span class="track-title-link" id="player-track-title">No song playing</span>
+        <span class="track-artist-link" id="player-track-artist">Select a track</span>
+      </div>
+      <button class="control-btn heart-btn" id="player-like-btn" title="Save to Liked Songs">
+        <i class="fa-regular fa-heart"></i>
+      </button>
+    </div>
+
+    <!-- CENTER PANEL: PLAYBACK INTERACTIVE BUTTONS & PROGRESS BAR -->
+    <div class="player-controls">
+      <div class="control-buttons">
+        <button class="control-btn" id="shuffle-btn" title="Enable Shuffle">
+          <i class="fa-solid fa-shuffle"></i>
+        </button>
+        <button class="control-btn" id="prev-btn" title="Previous Song">
+          <i class="fa-solid fa-backward-step"></i>
+        </button>
+        <button class="control-btn play-pause-btn" id="play-pause-btn" title="Play">
+          <i class="fa-solid fa-play"></i>
+        </button>
+        <button class="control-btn" id="next-btn" title="Next Song">
+          <i class="fa-solid fa-forward-step"></i>
+        </button>
+        <button class="control-btn" id="repeat-btn" title="Enable Repeat">
+          <i class="fa-solid fa-repeat"></i>
+          <span class="repeat-badge" id="repeat-badge" style="display: none;">1</span>
+        </button>
+      </div>
+
+      <div class="progress-bar-row">
+        <span class="time-label" id="current-time-label">0:00</span>
+        <div class="seekbar-container" id="seekbar-container">
+          <div class="seekbar-track"></div>
+          <div class="seekbar-progress" id="seekbar-progress"></div>
+          <div class="seekbar-handle" id="seekbar-handle"></div>
+          <!-- Real HTML Range Input overlaid invisibly for high precision click & drag -->
+          <input type="range" id="audio-seekbar" class="audio-input-slider" min="0" max="100" value="0">
+        </div>
+        <span class="time-label" id="duration-label">0:00</span>
+      </div>
+
+      <div class="transport-actions" aria-label="Playback actions">
+        <button class="transport-pill" id="action-play-btn" type="button">
+          <i class="fa-solid fa-play"></i>
+          <span>Play</span>
+        </button>
+        <button class="transport-pill" id="action-pause-btn" type="button">
+          <i class="fa-solid fa-pause"></i>
+          <span>Pause</span>
+        </button>
+        <button class="transport-pill" id="action-resume-btn" type="button">
+          <i class="fa-solid fa-rotate-right"></i>
+          <span>Resume</span>
+        </button>
+        <button class="transport-pill" id="action-repeat-btn" type="button">
+          <i class="fa-solid fa-repeat"></i>
+          <span>Repeat</span>
+        </button>
+      </div>
+
+      <p class="lyrics-mini" id="footer-lyrics-preview">Play a song to show lyrics here.</p>
+    </div>
+
+    <!-- RIGHT PANEL: UTILITIES & SYSTEM CONTROLS -->
+    <div class="player-utilities">
+      <button class="control-btn util-btn" id="queue-btn" title="Now Playing Panel">
+        <i class="fa-solid fa-music"></i>
+      </button>
+      <button class="control-btn util-btn" id="volume-mute-btn" title="Mute Volume">
+        <i class="fa-solid fa-volume-high"></i>
+      </button>
+      <div class="volume-slider-container">
+        <div class="seekbar-container volume-seekbar" id="volume-seekbar-container">
+          <div class="seekbar-track"></div>
+          <div class="seekbar-progress" id="volume-progress"></div>
+          <div class="seekbar-handle" id="volume-handle"></div>
+          <input type="range" id="volume-slider" class="audio-input-slider" min="0" max="100" value="70">
+        </div>
+      </div>
+      <button class="control-btn util-btn" id="mini-player-btn" title="Mini Player">
+        <i class="fa-solid fa-rectangle-list"></i>
+      </button>
+      <button class="control-btn util-btn" id="fullscreen-btn" title="Maximum Player">
+        <i class="fa-solid fa-expand"></i>
+      </button>
+    </div>
+  </footer>
+
+  <!-- DYNAMIC AUDIO ELEMENT -->
+  <audio id="main-audio-element" preload="auto"></audio>
+
+  <section class="max-player-overlay" id="max-player-overlay" aria-hidden="true">
+    <div class="max-player-header">
+      <div>
+        <span class="max-player-label">Maximum Player</span>
+        <h2>All Songs</h2>
+      </div>
+      <button class="max-player-close" id="max-player-close" type="button" title="Close maximum player">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="max-now-playing">
+      <div class="max-now-art" id="max-now-art"></div>
+      <div>
+        <span class="max-now-title" id="max-now-title">No song playing</span>
+        <span class="max-now-artist" id="max-now-artist">Select any thumbnail below</span>
+      </div>
+    </div>
+
+    <div class="max-song-grid" id="max-song-grid"></div>
+  </section>
+
+  <!-- FULL SCREEN LYRICS OVERLAY -->
+  <section class="lyrics-overlay" id="fullscreen-lyrics-overlay" aria-hidden="true">
+    <div class="lyrics-overlay-header">
+      <div class="lyrics-overlay-trackinfo">
+        <span class="lyrics-overlay-title" id="overlay-lyrics-title">No song playing</span>
+        <span class="lyrics-overlay-artist" id="overlay-lyrics-artist">Select a track</span>
+      </div>
+      <button class="lyrics-overlay-close" id="fullscreen-lyrics-close" type="button" title="Close lyrics">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="lyrics-overlay-container" id="overlay-lyrics-container">
+      <!-- Synced lyrics will dynamically render here in large format -->
+    </div>
+  </section>
+  
+  <script src="app.js"></script>
+</body>
+</html>
